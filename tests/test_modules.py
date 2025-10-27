@@ -109,5 +109,5 @@ def test_auth_with_invalid_json():
     conn.request("POST", "/auth", body=b"{invalid", headers={"Content-Type": "application/json"})
     resp = conn.getresponse()
     data = resp.read()
-    assert resp.status in (200, 400, 404)  # tuỳ cách server phản hồi
+    assert resp.status in (200, 400, 404)  
     conn.close()
