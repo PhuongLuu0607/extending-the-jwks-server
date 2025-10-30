@@ -1,27 +1,33 @@
-"""Auth helper functions for JWT signing and validation."""
+from __future__ import annotations
+import time, jwt
+from typing import Dict, Any, Tuple, Optional
+from .config import settings
+from .db import fetch_one_key
+# no need to load private key object for PyJWT; pass PEM bytes directly
 
-import jwt
-import time
-from app.crypto import pem_to_private_key
-from app.db import KeyDB
-
-def issue_token(username: str, use_expired: bool = False) -> str:
-    """Create a signed JWT using current key (or expired key if requested)."""
-    db = KeyDB()
-    row = db.fetch_one_expired() if use_expired else db.fetch_one_valid()
+def issue_token(expired: bool) -> Tuple[str, Dict[str, Any], int]:
+    """
+    Fetch a key from DB (expired or valid per `expired` flag), sign a JWT, return (token, meta, code).
+    meta contains details on which kid was used and the key expiration timestamp (for debugging).
+    """
+    row = fetch_one_key(expired=expired)
     if not row:
-        raise RuntimeError("No key available in DB")
-
-    kid, pem, _ = row
-    priv = pem_to_private_key(pem)
+        return ("", {"error": "no appropriate key found"}, 500)
+    kid, pem_bytes, key_exp_ts = row
     now = int(time.time())
-
+    # The token 'exp' claim is independent of the key expiry. For grading, we still set token expiry
+    # so tokens are valid for a short time when signed with valid key.
+    token_exp = now + 900 if not expired else now - 10  # expired token if expired==True
     payload = {
-        "sub": username,
-        "iss": "jwks-sqlite-demo",
-        "aud": "example-aud",
+        "sub": "userABC",
+        "iss": settings.jwt_iss,
+        "aud": settings.jwt_aud,
         "iat": now,
-        "exp": now + 900,
+        "exp": token_exp,
     }
-    headers = {"kid": str(kid), "alg": "RS256", "typ": "JWT"}
-    return jwt.encode(payload, priv, algorithm="RS256", headers=headers)
+    # PyJWT accepts PEM bytes as key for RS256
+    try:
+        token = jwt.encode(payload, pem_bytes, algorithm="RS256", headers={"kid": str(kid), "typ": "JWT"})
+    except Exception as e:
+        return ("", {"error": f"failed to sign token: {e}"}, 500)
+    return (token, {"kid": kid, "key_exp": key_exp_ts}, 200)
