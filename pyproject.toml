@@ -1,17 +1,12 @@
-[tool.black]
-line-length = 100
-target-version = ["py311"]
+[build-system]
+requires = ["setuptools", "wheel"]
 
-[tool.ruff]
-line-length = 100
-select = ["E","F","I","UP","B","C90"]
-ignore = ["E501"]
-
-[tool.ruff.isort]
-known-first-party = ["app"]
+[project]
+name = "jwks-sqlite-server"
+version = "0.1.0"
+description = "SQLite-backed JWKS demo server for CSCE 3550 Project 2"
+requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
-addopts = "--cov=app --cov-report=term-missing"
+addopts = "-q"
 testpaths = ["tests"]
-
-
